@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="en">
+
+    <head>
+
+        <style>
+            h1 {
+                color: #1ECA11;
+                text-shadow: 1px 1px 10px #1ECA11;
+                margin-left: 1em;
+                margin-top: 1em;
+            }
+            
+            body {
+                font-family: "Courier";
+                margin: 0;
+                background-image: url(myCanvas);
+            }
+
+            .myCanvas {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+            }
+
+            .overlay > * {
+                z-index: 1;
+                position: relative;
+            }
+
+            .options {
+                display: flex;
+                flex-direction: column;
+                justify-content: space-between;
+
+                flex: space-around;
+                /*
+                position: fixed;
+                left: 1em;
+                bottom: 1em;
+                */
+
+                
+                width: fit-content;
+                height: fit-content;
+                
+                background-color: rgba(0, 0, 0, 0.75);
+                
+                border-style: solid;
+                border-color: rgb(6, 43, 6);
+                border-radius: 1em;
+                border-width: 1px;
+
+                color: #1ECA11;
+                text-shadow: 1px 1px 10px #1ECA11;
+                
+                margin-left: 1em;
+                padding: 0.5em;
+            }
+
+            .options > * {
+                padding-top: 0.2em;
+                padding-bottom: 0.2em;
+            }
+
+            /* cringe */
+            input[type="checkbox"] {
+                filter: invert(100%) hue-rotate(75deg);
+            }
+
+            button {
+                font-family: "Courier";
+                background-color: transparent;
+                color: #1ECA11;
+                text-shadow: 1px 1px 10px #1ECA11;
+                border-style: solid;
+                border-color: rgb(6, 43, 6);
+                border-radius: 0.25em;
+                border-width: 1px;
+                
+                width: 100%;
+            }
+
+
+            @media screen and (max-device-width: 500px) and (min-device-width: 361px) {
+                .options {
+                    transform-origin: top left;
+                    transform: scale(2);
+                }
+            }
+        </style>
+
+
+    </head>
+
+
+    <body>    
+        <canvas class="myCanvas" ondrop="dropHandler(event);" ondragover="dragOverHandler(event);"></canvas>
+        
+        <div class="overlay">
+    
+            <!-- <h1>Sirius</h1> -->
+
+            <!-- <div class="options"> -->
+                <!-- <div> -->
+                <!-- <input type="checkbox" id="names" name="names_checkbox" onchange="system.showNames = !system.showNames" checked autocomplete="off"> -->
+                <!-- <label for="names">Names</label> -->
+                <!-- </div> -->
+                <!-- <div> -->
+                <!-- <input type="checkbox" id="rings" name="rings_checkbox" onchange="system.showRings = !system.showRings" checked autocomplete="off"> -->
+                <!-- <label for="rings">Orbits</label> -->
+                <!-- </div> -->
+                <!-- <div> -->
+                <!-- <input type="checkbox" id="shadows" name="shadows_checkbox" onchange="system.showShadows = !system.showShadows" checked autocomplete="off"> -->
+                <!-- <label for="shadows">Shadows</label> -->
+                <!-- </div> -->
+                <!-- <div> -->
+                <!-- <input type="checkbox" id="animate" name="animate_checkbox" onchange="isAnimate = !isAnimate" checked autocomplete="off"> -->
+                <!-- <label for="animate">Animate</label> -->
+                <!-- </div> -->
+                <!-- <div> -->
+                <!-- <input type="checkbox" id="align" name="align_checkbox" onchange="system.alignPlanets = !system.alignPlanets" autocomplete="off"> -->
+                <!-- <label for="align">Align Planets</label> -->
+                <!-- </div> -->
+                <!-- <div> -->
+                <!-- <button type="button" id="randomize" name="randomize_button" onclick="system.randomize();">Randomize</input> -->
+                <!-- </div> -->
+                <!-- <div> -->
+                <!-- <button type="button" id="randomize_angles" name="randomize_angles_button" onclick="system.randomizeAngles();">Randomize Angles</input> -->
+                <!-- </div> -->
+            <!-- </div> -->
+        
+        </div>
+        
+    </body>
+
+
+    <footer>
+
+    </footer>
+
+    <script>
+        
+    const canvas = document.querySelector(".myCanvas");
+    //const width = canvas.width = innerWidth;
+    //const height = canvas.height = innerHeight;
+    var width = canvas.clientWidth;
+    var height = canvas.clientHeight;
+    canvas.width = width;
+    canvas.height = height;
+    const c = canvas.getContext("2d");
+    
+    calculateCanvasResolution();
+
+    let mouseX = 0;
+    let mouseY = 0;
+    
+	let camera = {x: 0, y: 0};
+	let cameraNext = camera;
+	
+	let zoom = 1.5;
+	let zoomNext = zoom;
+	
+    let recording;
+
+    let isAnimate = true;
+
+
+    let loaded = false;
+
+    let starfield = new Image();
+    starfield.src = "./stars.png";
+
+    starfield.addEventListener("load", function() {
+        loaded = true;
+    }, false)
+
+
+    function clear() {
+		loaded = false;
+        if (loaded) {
+            c.drawImage(starfield, 0, 0);
+            c.fillStyle = "rgba(0, 0, 0, 0.5)";
+            c.fillRect(0, 0, width, height);
+        } else {
+            c.fillStyle = "#003";
+            c.fillRect(0, 0, width, height);
+        }
+    }
+
+
+    function init() {
+        system.init();
+		
+    }
+
+	function Vector3(str) {
+		let f = str.split(" ").map(e => Number(e));
+		return {x: f[0], y: f[1], z: f[2]};
+	}
+
+	function parseSCC(scc) {
+		const startTag = "start_block";
+		const gridTag = "grid";
+		console.log("scc length "+scc.length);
+		let startTime = null;
+		let blocks = [];
+		let rows = scc.split("\n");
+		let columnHeaders = rows[1].split(",");
+		for (let row of rows) {
+			let cols = row.split(",");
+			let entry_kind = cols[0];
+			switch (entry_kind) {
+				case "start_block":
+					let timestamp = Date.parse(cols[1]);
+					if (startTime == null) startTime = timestamp; else timestamp -= startTime;
+					blocks.push({time: timestamp, entries: []});
+				break;
+				case "grid":
+					if (blocks.length <= 0) {
+						console.log("error: expected start_block before first grid entry");
+						return;
+					}
+					let grid = {};
+					columnHeaders.forEach((key, i) => grid[key] = cols[i]);
+					grid["position"] = Vector3(grid["position"]);
+					blocks[blocks.length-1].entries.push(grid);
+				break;
+			}
+		}
+		console.log(blocks);
+		recording = blocks;
+		return blocks;
+	}
+
+	function dragOverHandler(e) {
+		e.preventDefault();
+	}
+	function dropHandler(e) {
+		console.log('File(s) dropped');
+		// Prevent default behavior (Prevent file from being opened)
+		e.preventDefault();
+		let files = [];
+		if (e.dataTransfer?.items) {
+			// Use DataTransferItemList interface to access the file(s)
+			for (var i = 0; i < e.dataTransfer.items.length; i++) {
+				// If dropped items aren't files, reject them
+				if (e.dataTransfer.items[i].kind === 'file') {
+					let file = e.dataTransfer.items[i].getAsFile();
+					if (file)
+						files.push(file);
+				}
+			}
+		}
+		else {
+			// Use DataTransfer interface to access the file(s)
+			if (e.dataTransfer) {
+				for (var i = 0; i < e.dataTransfer.files.length; i++) {
+					files.push(e.dataTransfer.files[i]);
+				}
+			}
+		}
+		files.forEach(f => console.log(f.name));
+		files.forEach(f => {
+			if (f.name.toLowerCase().includes(".scc")) {
+				//if (f.name.toUpperCase() === "TECH.DAT") {
+					f.text().then(t => parseSCC(t));
+				//}
+			}
+		});
+	}
+
+	let previousTimeStamp;
+    function animate(timeStamp) {
+		if (previousTimeStamp === undefined) {
+			previousTimeStamp = timeStamp;
+		}
+		const dt = timeStamp - previousTimeStamp;
+        requestAnimationFrame(animate);
+        clear();
+        if(isAnimate)
+            update(dt);
+        draw(dt);
+		previousTimeStamp = timeStamp;
+    }
+
+
+    function update(dt) {
+        system.update();
+    }
+    
+	let frameCounter = 0;
+	
+	let scrubber = 0.0;
+	
+	function lerp(v0, v1, t) {
+		return v0*(1-t)+v1*t
+	}
+	
+	function drawGrid() {
+		let x = width/2 + camera.x;
+		let y = height/2 + camera.y;
+		c.strokeStyle = "green";
+		// vertical
+		c.beginPath();
+		c.moveTo(x,0);
+		c.lineTo(x,height);
+		c.stroke();
+		
+		let meters = 100 * (1/zoom);
+		let spacing = meters * zoom;
+		c.lineWidth = 0.5;
+		for (let i = 0; x + i * spacing < width; ++i) {
+			c.beginPath();
+			c.moveTo(x+i*spacing, 0);
+			c.lineTo(x+i*spacing, height);
+			c.stroke();
+		}
+		for (let i = 0; x - i * spacing > 0; ++i) {
+			c.beginPath();
+			c.moveTo(x-i*spacing, 0);
+			c.lineTo(x-i*spacing, height);
+			c.stroke();
+		}
+		
+		c.lineWidth = 1;
+		// horizontal
+		c.beginPath();
+		c.moveTo(0,y);
+		c.lineTo(width,y);
+		c.stroke();
+		
+		c.lineWidth = 0.5;
+		for (let i = 0; y + i * spacing < width; ++i) {
+			c.beginPath();
+			c.moveTo(0, y+i*spacing);
+			c.lineTo(width, y+i*spacing);
+			c.stroke();
+		}
+		for (let i = 0; y - i * spacing > 0; ++i) {
+			c.beginPath();
+			c.moveTo(0, y-i*spacing);
+			c.lineTo(width, y-i*spacing);
+			c.stroke();
+		}
+		
+		// draw scale indicator
+		x = 0 + 10;
+		y = height - 20;
+		c.lineWidth = 2;
+		c.beginPath();
+		c.moveTo(x, y);
+		c.lineTo(x + spacing, y);
+		c.stroke();
+		c.fillStyle = "green";
+		c.fillText(Math.round(meters) + " m", x, y - 8);
+	}
+	
+	function drawRings() {
+		// draw distance rings
+		let rings = [100, 250, 500, 1000, 5000, 10000, 20000];
+		let ringFill = "green";
+		let x = camera.x + width/2;
+		let y = camera.y + height/2;
+		for (radius of rings) {
+			if (radius * zoom > width / 1.5) break;
+			c.beginPath();
+            c.strokeStyle = "green";//ringFill;//"#555";
+            c.setLineDash([5, 3]);
+			c.lineWidth = 1;
+            c.arc(x, y, radius * zoom, 0, Math.PI * 2, false);
+            c.stroke();
+			let pad = 4;
+			c.fillStyle = ringFill
+			if (zoom*radius > 50) {
+				c.fillText(radius+" m", x + radius*zoom + pad, y - pad);
+			}
+		}
+		c.setLineDash([]);
+	}
+	
+    function draw(dt) {
+        //system.draw();
+		zoom = lerp(zoom, zoomNext, 0.05125);
+		camera.x = lerp(camera.x, cameraNext.x, 0.05125);
+		camera.y = lerp(camera.y, cameraNext.y, 0.05125);
+		
+		drawGrid();
+		
+		drawRings();
+        // c.beginPath();
+        // c.fillStyle = "#333";
+        // let theta = cartToPolar(mouseX - width/2, mouseY - height/2).theta;
+        // c.arc(width/2, height/2, system.radius*10, Math.PI - theta, -theta, false);
+        // c.fill();
+		
+		if (recording) {
+			let proportion = 1.0 / recording.length;
+			let remapped = scrubber / proportion;
+			let currentIndex = Math.floor(remapped);
+			let nextIndex = currentIndex+1;
+			
+			if (nextIndex == recording.length) {
+				scrubber = 0;
+				return;
+			}
+			
+			let currentData = recording[currentIndex];
+			let nextData = recording[nextIndex];
+			
+			let radius = 5;
+			
+			let fill = "white";
+			
+			for (obj of currentData.entries) {
+				let next = nextData.entries.find(e => e.name == obj.name);
+				let nextPosition = {x: 0, y: 0};
+				let amt = 0.0;
+				if (next) {
+					nextPosition = next.position;
+					amt = remapped - Math.floor(remapped);
+				}
+				let x = (lerp(obj.position.x, nextPosition.x, amt) * zoom) + width/2;
+				let y = (lerp(obj.position.y, nextPosition.y, amt) * zoom) + height/2;
+				
+				x = x + camera.x;
+				y = y + camera.y;
+				
+				c.beginPath();
+				c.arc(x, y, radius, 0, Math.PI * 2, false);
+				c.fillStyle = fill;
+				c.fill();
+				
+				let xoff = 4;
+				let yoff = 4;
+				c.fillText(obj.name, x + xoff + radius, y + yoff - radius);
+			}
+			// TODO: assumes recording samples are one second apart.
+			scrubber += dt / (recording.length * 1000);
+			if (scrubber >= 1.0) scrubber = 0;
+		}
+    }
+
+
+
+    class StarSystem {
+
+        constructor() {
+            this.radius = 5;
+            this.color = "white";
+            this.name = "Sirius";
+
+            this.showNames = true;
+            this.showRings = true;
+            this.showShadows = true;
+            this.alignPlanets = false;
+        }
+
+
+        init() {
+            this.planets = [];
+            let planetCount = roll(3, 6) - 3;
+            for (let i = 0; i < planetCount; ++i) {
+                let p = new Planet();
+                let failedToPlacePlanet = false;
+                for (let n = 0; n <= 1000; ++n) {
+                    if (n == 1000)
+                        failedToPlacePlanet = true;
+                    if (p.isOverlapped(this.planets))
+                        p.randomAlt();
+                    else
+                        break;
+                }
+                if(!failedToPlacePlanet)
+                    this.planets.push(p);
+            }
+
+            this.planets.sort((a, b) => a.alt - b.alt);
+
+            this.planets.forEach((planet, index) => {
+                planet.name = `${this.name} ${convertToRoman(index + 1)}`;
+            })
+        }
+
+
+        update() {
+            this.planets.forEach((planet) => planet.update());
+        }
+
+
+        draw() {
+            c.beginPath();
+            c.arc(width/2, height/2, this.radius, 0, Math.PI * 2, false);
+            c.fillStyle = this.color;
+            c.fill();
+
+            if (this.showRings)
+                this.planets.forEach((planet) => planet.ring());
+
+            if(this.alignPlanets) this.planets.forEach((p) => {
+                p.angle = 0;
+            });
+            this.planets.forEach((planet) => planet.draw());
+
+            if (this.showNames)
+                this.planets.forEach((planet) => planet.nameDraw());
+
+            if (this.showShadows)
+                this.planets.forEach((planet) => planet.shadowDraw());
+        }
+
+
+        randomize() {
+            this.init();
+        }
+
+
+        randomizeAngles() {
+            this.planets.forEach((planet) => planet.angle = Math.random() * 2 * Math.PI);
+            this.alignPlanets = false;
+            const checkbox = document.getElementById("align");
+            checkbox.checked = false;
+        }
+    }
+
+
+
+    class Planet {
+
+        constructor() {
+            let greatestDirection = width > height ? height : width;
+            this.alt = getRandomInt(50, greatestDirection/2 - 12);
+            this.angle = Math.random() * Math.PI * 2;
+            this.radius = getRandomInt(4, 12);
+            //this.color = "#c8c8c8";
+            this.color = `hsl(${Math.random() * 360}, 50%, 50%)`;
+            this.name = "";
+        }
+
+
+
+        randomAlt() {
+            let greatestDirection = width > height ? height : width;
+            this.alt = getRandomInt(50, greatestDirection/2-12);
+        }
+
+
+
+        isOverlapped(planets) {
+            let overlap = false;
+            planets.forEach((planet) => {
+                if ((this.alt <= planet.alt && this.alt + this.radius >= (planet.alt - planet.radius))
+                    || (this.alt >= planet.alt && this.alt - this.radius <= planet.alt + planet.radius)) {
+                    overlap = true;
+                    return;
+                }
+            });
+            return overlap;
+        }
+
+
+
+        update() {
+            this.angle += Math.sqrt(1 / (this.alt * this.alt * this.alt)) * 5;
+        }
+
+
+
+        draw() {
+            c.beginPath();
+            let pos = polarToCart(this.alt, this.angle);
+            c.arc(width/2 + pos.x, height/2 + pos.y, this.radius, 0, Math.PI * 2, false);
+            c.fillStyle = this.color;
+            c.fill();
+
+            
+        }
+
+
+
+        ring() {
+            c.beginPath();
+            c.strokeStyle = "#555";
+            c.setLineDash([5, 3]);
+            c.arc(width/2, height/2, this.alt, 0, Math.PI * 2, false);
+            c.stroke();
+        }
+
+
+
+        shadowDraw() {
+            c.beginPath();
+            c.fillStyle = "#333";
+            //c.fillStyle = "rgba(0, 0, 0, 0.75)";
+            let pos = polarToCart(this.alt, this.angle);
+            //let theta = cartToPolar(mouseX - width/2 - pos.x, mouseY - height/2 - pos.y).theta;
+            let theta = cartToPolar(-pos.x, -pos.y).theta;
+            c.arc(width/2 + pos.x, height/2 + pos.y, this.radius*1.05, Math.PI - theta, -theta, false);
+            c.fill();
+        }
+
+
+
+        nameDraw() {
+            c.save();
+            let pos = polarToCart(this.alt, this.angle);
+            c.font = "14px courier";
+            c.textAlign = "center";
+            c.textBaseline = "top";
+            c.fillStyle = "#1ECA11";
+            c.shadowColor = "#1ECA11";
+            c.shadowOffsetX = 1;
+            c.shadowOffsetY = 1;
+            c.shadowBlur = 8;
+            c.fillText(this.name, width/2 + pos.x, height/2 + pos.y + this.radius);
+            c.restore();
+        }
+
+    }
+
+
+
+    let system = new StarSystem();
+
+    function polarToCart(radius, theta) {
+        return {
+            x: radius * Math.cos(theta),
+            y: radius * Math.sin(theta)
+        }
+    }
+
+
+    function cartToPolar(x, y) {
+        return {
+            theta: Math.atan2(x, y),
+            radius: Math.sqrt(x * x + y * y)
+        }
+    }
+
+
+    function getRandomInt(max) {
+        return Math.floor(Math.random() * max);
+    }
+
+
+    function getRandomInt(min, max) {
+        min = Math.ceil(min);
+        max = Math.floor(max);
+        return Math.floor(Math.random() * (max - min + 1)) + min;
+    }
+
+
+    function roll(dice, faces) {
+        acc = 0;
+        for(let i = 0; i < dice; ++i) {
+            acc += getRandomInt(1, faces);
+        }
+        return acc;
+    }
+
+
+    function convertToRoman(num) {
+        var roman = {
+            M: 1000,
+            CM: 900,
+            D: 500,
+            CD: 400,
+            C: 100,
+            XC: 90,
+            L: 50,
+            XL: 40,
+            X: 10,
+            IX: 9,
+            V: 5,
+            IV: 4,
+            I: 1
+        };
+        var str = '';
+
+        for (var i of Object.keys(roman)) {
+            var q = Math.floor(num / roman[i]);
+            num -= q * roman[i];
+            str += i.repeat(q);
+        }
+
+        return str;
+    }
+
+
+
+    function calculateCanvasResolution() {
+        width = canvas.clientWidth;
+        height = canvas.clientHeight;
+        canvas.width = width;
+        canvas.height = height;
+    }
+
+
+
+    clear();
+
+    init();
+
+    animate();
+
+
+    // addEventListener("click", () => {
+    //     system = new StarSystem();
+    //     init();
+    // })
+	let dragStartPosition = null;
+	let cameraPrv = camera;
+	canvas.addEventListener("mousedown", (e) => {
+		cameraPrv = {x: camera.x, y: camera.y};
+		dragStartPosition = {x: mouseX, y: mouseY};
+	});
+	
+	canvas.addEventListener("mouseup", (e) => {
+		if (dragStartPosition) {
+			camera.x = cameraPrv.x + mouseX - dragStartPosition.x;
+			camera.y = cameraPrv.y + mouseY - dragStartPosition.y;
+			dragStartPosition = null;
+		}
+	});
+
+	let zoomIndex = 4;
+	
+	canvas.addEventListener("wheel", e => {
+		let scrollDelta = e.deltaY > 0 ? 1 : -1;
+		let zoomLevels = [16, 8, 4, 2, 1, 0.5, 0.25, 0.125, 0.0625, 0.03125];
+		zoomIndex += scrollDelta;
+		if (zoomIndex < 0) zoomIndex = 0;
+		if (zoomIndex >= zoomLevels.length) zoomIndex = zoomLevels.length-1;
+		zoomNext = zoomLevels[zoomIndex];
+		// TODO: zoom to cursor
+		//cameraNext.x = (mouseX - width/2);
+		//cameraNext.y = (mouseY - height/2);
+		
+	}, { passive: true });
+    
+    window.onresize = calculateCanvasResolution;
+
+
+    canvas.addEventListener("mousemove", function(e) { 
+        let cRect = canvas.getBoundingClientRect();        // Gets CSS pos, and width/height
+        let canvasX = Math.round(e.clientX - cRect.left);  // Subtract the 'left' of the canvas 
+        let canvasY = Math.round(e.clientY - cRect.top);   // from the X/Y positions to make  
+        c.clearRect(0, 0, canvas.width, canvas.height);  // (0,0) the top left of the canvas
+		c.fillStyle = "green";
+        c.fillText("X: "+canvasX+", Y: "+canvasY, 10, 20);
+        mouseX = canvasX;
+        mouseY = canvasY;
+		if (dragStartPosition) {
+			camera.x = cameraPrv.x + mouseX - dragStartPosition.x;
+			camera.y = cameraPrv.y + mouseY - dragStartPosition.y;
+			console.log(camera);
+		}
+    });
+
+
+    </script>
+</html>
