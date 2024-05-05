@@ -314,28 +314,27 @@ canvas.addEventListener("mouseup", (e) => {
 let zoomIndex = 4;
 
 canvas.addEventListener("wheel", e => {
-	let scrollDelta = e.deltaY > 0 ? 1 : -1;
-	let zoomLevels = [16, 8, 4, 2, 1, 0.5, 0.25, 0.125, 0.0625, 0.03125];
-	let prvZoomIndex = zoomIndex;
-	zoomIndex += scrollDelta;
-	
-	if (zoomIndex < 0) zoomIndex = 0;
-	if (zoomIndex >= zoomLevels.length) zoomIndex = zoomLevels.length-1;
-	zoomNext = zoomLevels[zoomIndex];
-	// TODO: zoom to cursor
-	if (prvZoomIndex == zoomIndex) return;
-	if (scrollDelta > 0) {
-		console.log("out");
-		cameraNext.x = (camera.x + (mouseX-width/2)) * (zoomNext-zoom);
-		cameraNext.y = (camera.y + (mouseY-height/2)) * (zoomNext-zoom);
-	}
-	else
-	{
-		console.log("in");
-		cameraNext.x = camera.x - (mouseX-width/2) + camera.x;
-		cameraNext.y = camera.y - (mouseY-height/2) + camera.y;
-	}
-}, { passive: true });
+    e.preventDefault();
+    let scrollDelta = e.deltaY > 0 ? 1 : -1;
+    let zoomLevels = [16, 8, 4, 2, 1, 0.5, 0.25, 0.125, 0.0625, 0.03125];
+    let prvZoomIndex = zoomIndex;
+    zoomIndex += scrollDelta;
+
+    if (zoomIndex < 0) zoomIndex = 0;
+    if (zoomIndex >= zoomLevels.length) zoomIndex = zoomLevels.length - 1;
+
+    let prvZoom = zoom;
+    zoomNext = zoomLevels[zoomIndex];
+
+    if (prvZoomIndex === zoomIndex) return;
+
+    let zoomRatio = zoomNext / prvZoom;
+    let mouseXRelativeToCenter = mouseX - width / 2;
+    let mouseYRelativeToCenter = mouseY - height / 2;
+
+    cameraNext.x = camera.x - mouseXRelativeToCenter * (zoomRatio - 1);
+    cameraNext.y = camera.y - mouseYRelativeToCenter * (zoomRatio - 1);
+}, { passive: false });
 
 window.onresize = calculateCanvasResolution;
 
