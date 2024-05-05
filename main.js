@@ -11,7 +11,7 @@ let mouseX = 0;
 let mouseY = 0;
 
 let camera = {x: 0, y: 0};
-let cameraNext = camera;
+let cameraNext = {x: camera.x, y: camera.y};
 
 let zoom = 1.5;
 let zoomNext = zoom;
@@ -200,7 +200,7 @@ function drawRings() {
 	
 	c.strokeStyle = ringColor;
 	for (radius of rings) {
-		if (radius * zoom > width / 1.5) break;
+		//if (radius * zoom > width / 1.5) break;
 		c.beginPath();
 		c.lineWidth = 1;
 		c.arc(x, y, radius * zoom, 0, Math.PI * 2, false);
@@ -216,6 +216,8 @@ function drawRings() {
 
 function draw(dt) {
 	zoom = lerp(zoom, zoomNext, 0.05125);
+	c.fillStyle = "green";
+	c.fillText(cameraNext.x - camera.x, 10, 10);
 	camera.x = lerp(camera.x, cameraNext.x, 0.05125);
 	camera.y = lerp(camera.y, cameraNext.y, 0.05125);
 	
@@ -314,11 +316,25 @@ let zoomIndex = 4;
 canvas.addEventListener("wheel", e => {
 	let scrollDelta = e.deltaY > 0 ? 1 : -1;
 	let zoomLevels = [16, 8, 4, 2, 1, 0.5, 0.25, 0.125, 0.0625, 0.03125];
+	let prvZoomIndex = zoomIndex;
 	zoomIndex += scrollDelta;
+	
 	if (zoomIndex < 0) zoomIndex = 0;
 	if (zoomIndex >= zoomLevels.length) zoomIndex = zoomLevels.length-1;
 	zoomNext = zoomLevels[zoomIndex];
 	// TODO: zoom to cursor
+	if (prvZoomIndex == zoomIndex) return;
+	if (scrollDelta > 0) {
+		console.log("out");
+		cameraNext.x = (camera.x + (mouseX-width/2)) * (zoomNext-zoom);
+		cameraNext.y = (camera.y + (mouseY-height/2)) * (zoomNext-zoom);
+	}
+	else
+	{
+		console.log("in");
+		cameraNext.x = camera.x - (mouseX-width/2) + camera.x;
+		cameraNext.y = camera.y - (mouseY-height/2) + camera.y;
+	}
 }, { passive: true });
 
 window.onresize = calculateCanvasResolution;
@@ -335,7 +351,8 @@ canvas.addEventListener("mousemove", function(e) {
 	if (dragStartPosition) {
 		camera.x = cameraPrv.x + mouseX - dragStartPosition.x;
 		camera.y = cameraPrv.y + mouseY - dragStartPosition.y;
-		console.log(camera);
+		cameraNext.x = camera.x;
+		cameraNext.y = camera.y;
 	}
 });
 
