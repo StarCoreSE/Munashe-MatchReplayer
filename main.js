@@ -243,7 +243,7 @@ function draw(dt) {
 		let fill = "white";
 		
 		for (obj of currentData.entries) {
-			let next = nextData.entries.find(e => e.name == obj.name);
+			let next = nextData.entries.find(e => e.entityId == obj.entityId);
 			let nextPosition = {x: 0, y: 0};
 			let amt = 0.0;
 			if (next) {
