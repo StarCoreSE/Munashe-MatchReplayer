@@ -320,7 +320,7 @@ function draw(dt) {
 			let yoff = 4;
 			// velocity as delta distance between two frames
 			let velocity = Math.sqrt(sq(nextPosition.x - obj.position.x) + (nextPosition.y - obj.position.y));
-			
+			if (isNaN(velocity)) velocity = 0;
 			if (options.showNames) {
 				c.fillText(obj.name + " "+velocity.toFixed(0)+" m/s", x + xoff + radius, y + yoff - radius);
 			}
@@ -380,7 +380,6 @@ let dragStartPosition = null;
 let cameraPrv = camera;
 canvas.addEventListener("mousedown", (e) => {
 	let S = {x: mouseX, y: mouseY};
-	console.log(cachedScreenPositions);
 	let hitRadius = 100;
 	for (let i = 0; i < cachedScreenPositions.length; ++i) {
 		let p = cachedScreenPositions[i];
