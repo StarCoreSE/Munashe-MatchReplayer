@@ -11,14 +11,27 @@ let mouseX = 0;
 let mouseY = 0;
 
 let camera = {x: 0, y: 0};
+let offset = {x: width/2, y: height/2};
 let cameraNext = {x: camera.x, y: camera.y};
 
-let zoom = 1.5;
+let zoom = 1.0;
 let zoomNext = zoom;
 
 let recording;
 
 let isAnimate = true;
+
+function worldToScreen(x, y) {
+	x = (x - camera.x) * zoom + offset.x;
+	y = (y - camera.y) * zoom + offset.y;
+	return {x, y};
+}
+
+function screenToWorld(x, y) {
+	x = (x - offset.x) / zoom + camera.x;
+	y = (y - offset.y) / zoom + camera.y;
+	return {x, y};
+}
 
 function clear() {
 	loaded = false;
@@ -133,30 +146,15 @@ function lerp(v0, v1, t) {
 }
 
 function drawGrid() {
-	let x = width/2 + camera.x;
-	let y = height/2 + camera.y;
+	let S = worldToScreen(0, 0);
+	let x = S.x;
+	let y = S.y;
 	c.strokeStyle = "green";
 	// vertical
 	c.beginPath();
 	c.moveTo(x,0);
 	c.lineTo(x,height);
 	c.stroke();
-	
-	let meters = 100 * (1/zoom);
-	let spacing = meters * zoom;
-	c.lineWidth = 0.5;
-	for (let i = 0; x + i * spacing < width; ++i) {
-		c.beginPath();
-		c.moveTo(x+i*spacing, 0);
-		c.lineTo(x+i*spacing, height);
-		c.stroke();
-	}
-	for (let i = 0; x - i * spacing > 0; ++i) {
-		c.beginPath();
-		c.moveTo(x-i*spacing, 0);
-		c.lineTo(x-i*spacing, height);
-		c.stroke();
-	}
 	
 	c.lineWidth = 1;
 	// horizontal
@@ -165,38 +163,60 @@ function drawGrid() {
 	c.lineTo(width,y);
 	c.stroke();
 	
-	c.lineWidth = 0.5;
-	for (let i = 0; y + i * spacing < width; ++i) {
-		c.beginPath();
-		c.moveTo(0, y+i*spacing);
-		c.lineTo(width, y+i*spacing);
-		c.stroke();
-	}
-	for (let i = 0; y - i * spacing > 0; ++i) {
-		c.beginPath();
-		c.moveTo(0, y-i*spacing);
-		c.lineTo(width, y-i*spacing);
-		c.stroke();
-	}
+	// TODO: Bring back grid
+	// return;
 	
-	// draw scale indicator
-	x = 0 + 10;
-	y = height - 20;
-	c.lineWidth = 2;
-	c.beginPath();
-	c.moveTo(x, y);
-	c.lineTo(x + spacing, y);
-	c.stroke();
-	c.fillStyle = "green";
-	c.fillText(Math.round(meters) + " m", x, y - 8);
+	// let meters = 100 * (1/zoom);
+	// let spacing = meters * zoom;
+	// c.lineWidth = 0.5;
+	// for (let i = 0; x + i * spacing < width; ++i) {
+		// c.beginPath();
+		// c.moveTo(x+i*spacing, 0);
+		// c.lineTo(x+i*spacing, height);
+		// c.stroke();
+	// }
+	// for (let i = 0; x - i * spacing > 0; ++i) {
+		// c.beginPath();
+		// c.moveTo(x-i*spacing, 0);
+		// c.lineTo(x-i*spacing, height);
+		// c.stroke();
+	// }
+	
+	
+	
+	// c.lineWidth = 0.5;
+	// for (let i = 0; y + i * spacing < width; ++i) {
+		// c.beginPath();
+		// c.moveTo(0, y+i*spacing);
+		// c.lineTo(width, y+i*spacing);
+		// c.stroke();
+	// }
+	// for (let i = 0; y - i * spacing > 0; ++i) {
+		// c.beginPath();
+		// c.moveTo(0, y-i*spacing);
+		// c.lineTo(width, y-i*spacing);
+		// c.stroke();
+	// }
+	
+	// // draw scale indicator
+	// x = 0 + 10;
+	// y = height - 20;
+	// c.lineWidth = 2;
+	// c.beginPath();
+	// c.moveTo(x, y);
+	// c.lineTo(x + spacing, y);
+	// c.stroke();
+	// c.fillStyle = "green";
+	// c.fillText(Math.round(meters) + " m", x, y - 8);
 }
 
 function drawRings() {
 	// draw distance rings (radii in meters)
 	let rings = [100, 250, 500, 1000, 5000, 10000, 20000];
 	let ringColor = "green";
-	let x = camera.x + width/2;
-	let y = camera.y + height/2;
+	let p = worldToScreen(0, 0);
+	let x = p.x;
+	let y = p.y;
 	
 	c.strokeStyle = ringColor;
 	for (radius of rings) {
@@ -216,10 +236,6 @@ function drawRings() {
 
 function draw(dt) {
 	zoom = lerp(zoom, zoomNext, 0.05125);
-	c.fillStyle = "green";
-	c.fillText(cameraNext.x - camera.x, 10, 10);
-	camera.x = lerp(camera.x, cameraNext.x, 0.05125);
-	camera.y = lerp(camera.y, cameraNext.y, 0.05125);
 	
 	drawGrid();
 	drawRings();
@@ -250,11 +266,11 @@ function draw(dt) {
 				nextPosition = next.position;
 				amt = remapped - Math.floor(remapped);
 			}
-			let x = (lerp(obj.position.x, nextPosition.x, amt) * zoom) + width/2;
-			let y = (lerp(obj.position.y, nextPosition.y, amt) * zoom) + height/2;
-			
-			x = x + camera.x;
-			y = y + camera.y;
+			let wx = lerp(obj.position.x, nextPosition.x, amt);
+			let wy = lerp(obj.position.y, nextPosition.y, amt);
+			let S = worldToScreen(wx, wy);
+			let x = S.x;
+			let y = S.y;
 			
 			c.beginPath();
 			c.arc(x, y, radius, 0, Math.PI * 2, false);
@@ -305,8 +321,8 @@ canvas.addEventListener("mousedown", (e) => {
 
 canvas.addEventListener("mouseup", (e) => {
 	if (dragStartPosition) {
-		camera.x = cameraPrv.x + mouseX - dragStartPosition.x;
-		camera.y = cameraPrv.y + mouseY - dragStartPosition.y;
+		camera.x = cameraPrv.x + (dragStartPosition.x - mouseX) / zoom;
+		camera.y = cameraPrv.y + (dragStartPosition.y - mouseY) / zoom;
 		dragStartPosition = null;
 	}
 });
@@ -327,13 +343,19 @@ canvas.addEventListener("wheel", e => {
     zoomNext = zoomLevels[zoomIndex];
 
     if (prvZoomIndex === zoomIndex) return;
+	
+	// Get the world point that is under the mouse
+    let M = screenToWorld(mouseX, mouseY);
 
-    let zoomRatio = zoomNext / prvZoom;
-    let mouseXRelativeToCenter = mouseX - width / 2;
-    let mouseYRelativeToCenter = mouseY - height / 2;
+    // Set the offset to where the mouse is
+    offset.x = mouseX;
+	offset.y = mouseY;
 
-    cameraNext.x = camera.x - mouseXRelativeToCenter * (zoomRatio - 1);
-    cameraNext.y = camera.y - mouseYRelativeToCenter * (zoomRatio - 1);
+    // Set the target to match, so that the camera maps the world space point 
+    // under the cursor to the screen space point under the cursor at any zoom
+    camera.x = M.x;
+	camera.y = M.y;
+	
 }, { passive: false });
 
 window.onresize = calculateCanvasResolution;
@@ -348,10 +370,8 @@ canvas.addEventListener("mousemove", function(e) {
 	mouseX = canvasX;
 	mouseY = canvasY;
 	if (dragStartPosition) {
-		camera.x = cameraPrv.x + mouseX - dragStartPosition.x;
-		camera.y = cameraPrv.y + mouseY - dragStartPosition.y;
-		cameraNext.x = camera.x;
-		cameraNext.y = camera.y;
+		camera.x = cameraPrv.x + (dragStartPosition.x - mouseX) / zoom;
+		camera.y = cameraPrv.y + (dragStartPosition.y - mouseY) / zoom;
 	}
 });
 
