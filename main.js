@@ -5,17 +5,31 @@ canvas.width = width;
 canvas.height = height;
 const c = canvas.getContext("2d");
 
-calculateCanvasResolution();
-
-let mouseX = 0;
-let mouseY = 0;
-
 let camera = {x: 0, y: 0};
 let offset = {x: width/2, y: height/2};
 let cameraNext = {x: camera.x, y: camera.y};
 
+calculateCanvasResolution();
+
+var slider = document.getElementById("myRange");
+var timeLabel = document.getElementById("timeLabel");
+slider.value = 0;
+
+let isPlaying = true;
+
+let mouseX = 0;
+let mouseY = 0;
+
+
+
+let trackedTargetId = undefined;
+
 let zoom = 1.0;
 let zoomNext = zoom;
+
+let options = {
+	showNames: true,
+};
 
 let recording;
 
@@ -117,7 +131,11 @@ function dropHandler(e) {
 	files.forEach(f => console.log(f.name));
 	files.forEach(f => {
 		if (f.name.toLowerCase().includes(".scc")) {
-			f.text().then(t => parseSCC(t));
+			f.text().then(t => {
+				parseSCC(t);
+				let title = document.getElementById("title");
+				title.innerText = f.name;
+			});
 		}
 	});
 }
@@ -136,8 +154,7 @@ function animate(timeStamp) {
 	previousTimeStamp = timeStamp;
 }
 
-function update(dt) {
-}
+function update(dt) {}
 
 let scrubber = 0.0;
 
@@ -234,6 +251,18 @@ function drawRings() {
 	c.setLineDash([]);
 }
 
+function secondsToTime(e){
+    const h = Math.floor(e / 3600).toString().padStart(2,'0'),
+          m = Math.floor(e % 3600 / 60).toString().padStart(2,'0'),
+          s = Math.floor(e % 60).toString().padStart(2,'0');
+    
+    return h + ':' + m + ':' + s;
+    //return `${h}:${m}:${s}`;
+}
+
+
+let cachedScreenPositions = [];
+
 function draw(dt) {
 	zoom = lerp(zoom, zoomNext, 0.05125);
 	
@@ -241,14 +270,13 @@ function draw(dt) {
 	drawRings();
 	
 	if (recording) {
-		let proportion = 1.0 / recording.length;
+		let proportion = 1.0 / (recording.length - 1);
 		let remapped = scrubber / proportion;
 		let currentIndex = Math.floor(remapped);
 		let nextIndex = currentIndex+1;
 		
 		if (nextIndex == recording.length) {
-			scrubber = 0;
-			return;
+			nextIndex = currentIndex;
 		}
 		
 		let currentData = recording[currentIndex];
@@ -258,8 +286,11 @@ function draw(dt) {
 		
 		let fill = "white";
 		
+		cachedScreenPositions = [];
+		
 		for (obj of currentData.entries) {
 			let next = nextData.entries.find(e => e.entityId == obj.entityId);
+			
 			let nextPosition = {x: 0, y: 0};
 			let amt = 0.0;
 			if (next) {
@@ -268,9 +299,17 @@ function draw(dt) {
 			}
 			let wx = lerp(obj.position.x, nextPosition.x, amt);
 			let wy = lerp(obj.position.y, nextPosition.y, amt);
+			
+			if (trackedTargetId === obj.entityId) {
+				camera.x = wx;
+				camera.y = wy;
+			}
+			
 			let S = worldToScreen(wx, wy);
 			let x = S.x;
 			let y = S.y;
+			S.entityId = obj.entityId;
+			cachedScreenPositions.push(S);
 			
 			c.beginPath();
 			c.arc(x, y, radius, 0, Math.PI * 2, false);
@@ -279,13 +318,33 @@ function draw(dt) {
 			
 			let xoff = 4;
 			let yoff = 4;
-			c.fillText(obj.name, x + xoff + radius, y + yoff - radius);
+			if (options.showNames) {
+				c.fillText(obj.name, x + xoff + radius, y + yoff - radius);
+			}
 		}
+		if (isPlaying && !isSliding) {
 		// NOTE: assumes recording samples are one second apart.
-		scrubber += dt / (recording.length * 1000);
-		if (scrubber >= 1.0) scrubber = 0;
+			scrubber += dt / (recording.length * 1000);
+			slider.value = scrubber * 100;
+			if (scrubber >= 1.0) scrubber = 0;
+		}
+		
+		// timeLabel
+		timeLabel.innerHTML = secondsToTime(Math.floor(scrubber * (recording.length)))+"/"+secondsToTime(recording.length);
 	}
 }
+
+var isSliding = false;
+
+slider.addEventListener('input', function () {
+  isSliding = true;
+  scrubber = slider.value / 100;
+});
+
+slider.addEventListener('mouseup', function () {
+  isSliding = false;
+  scrubber = slider.value / 100;
+});
 
 function polarToCart(radius, theta) {
 	return {
@@ -306,15 +365,30 @@ function calculateCanvasResolution() {
 	height = canvas.clientHeight;
 	canvas.width = width;
 	canvas.height = height;
+	offset = {x: width/2, y: height/2};
 }
 
 clear();
 init();
 animate();
 
+function sq(n) { return n * n; }
 let dragStartPosition = null;
 let cameraPrv = camera;
 canvas.addEventListener("mousedown", (e) => {
+	let S = {x: mouseX, y: mouseY};
+	console.log(cachedScreenPositions);
+	let hitRadius = 100;
+	for (let i = 0; i < cachedScreenPositions.length; ++i) {
+		let p = cachedScreenPositions[i];
+		let squaredDistance = sq(S.x-p.x) + sq(S.y-p.y);
+		if (squaredDistance < hitRadius) {
+			trackedTargetId = p.entityId;
+			return;
+		}
+	}
+	trackedTargetId = undefined;
+
 	cameraPrv = {x: camera.x, y: camera.y};
 	dragStartPosition = {x: mouseX, y: mouseY};
 });
@@ -343,6 +417,9 @@ canvas.addEventListener("wheel", e => {
     zoomNext = zoomLevels[zoomIndex];
 
     if (prvZoomIndex === zoomIndex) return;
+	
+	// if the camera is tracking something, don't try to zoom-to-cursor
+	if (trackedTargetId !== undefined) return;
 	
 	// Get the world point that is under the mouse
     let M = screenToWorld(mouseX, mouseY);
