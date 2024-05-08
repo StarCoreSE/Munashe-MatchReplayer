@@ -68,37 +68,63 @@ function Vector3(str) {
 }
 
 function parseSCC(scc) {
-	const startTag = "start_block";
-	const gridTag = "grid";
-	console.log("scc length "+scc.length);
-	let startTime = null;
-	let blocks = [];
-	let rows = scc.split("\n");
-	let columnHeaders = rows[1].split(",");
-	for (let row of rows) {
-		let cols = row.split(",");
-		let entry_kind = cols[0];
-		switch (entry_kind) {
-			case "start_block":
-				let timestamp = Date.parse(cols[1]);
-				if (startTime == null) startTime = timestamp; else timestamp -= startTime;
-				blocks.push({time: timestamp, entries: []});
-			break;
-			case "grid":
-				if (blocks.length <= 0) {
-					console.log("error: expected start_block before first grid entry");
-					return;
-				}
-				let grid = {};
-				columnHeaders.forEach((key, i) => grid[key] = cols[i]);
-				grid["position"] = Vector3(grid["position"]);
-				blocks[blocks.length-1].entries.push(grid);
-			break;
-		}
-	}
-	console.log(blocks);
-	recording = blocks;
-	return blocks;
+  const startTag = "start_block";
+  const gridTag = "grid";
+  console.log("scc length " + scc.length);
+
+  let startTime = null;
+  let blocks = [];
+  let rows = scc.split("\n");
+
+  // Check if the file has at least two lines
+  if (rows.length < 2) {
+    console.warn("Invalid format: File should have at least two lines");
+    return null;
+  }
+
+  // Check if the first line contains "version 1"
+  if (rows[0].trim() !== "version 1") {
+    console.warn("Invalid format: Missing 'version 1' in the first line");
+    return null;
+  }
+
+  // Check if the second line contains the expected header
+  const expectedHeader = "kind,name,owner,faction,entityId,health,position,rotation";
+  if (rows[1].trim() !== expectedHeader) {
+    console.warn("Invalid format: Incorrect header");
+    return null;
+  }
+
+  let columnHeaders = rows[1].split(",");
+
+  for (let i = 2; i < rows.length; i++) {
+    let row = rows[i];
+    let cols = row.split(",");
+    let entry_kind = cols[0];
+
+    switch (entry_kind) {
+      case "start_block":
+        let timestamp = Date.parse(cols[1]);
+        if (startTime == null) startTime = timestamp;
+        else timestamp -= startTime;
+        blocks.push({ time: timestamp, entries: [] });
+        break;
+      case "grid":
+        if (blocks.length <= 0) {
+          console.warn("Invalid format: 'grid' entry found before 'start_block'");
+          return null;
+        }
+        let grid = {};
+        columnHeaders.forEach((key, i) => (grid[key] = cols[i]));
+        grid["position"] = Vector3(grid["position"]);
+        blocks[blocks.length - 1].entries.push(grid);
+        break;
+    }
+  }
+
+  console.log(blocks);
+  recording = blocks;
+  return blocks;
 }
 
 function dragOverHandler(e) {
@@ -132,9 +158,14 @@ function dropHandler(e) {
 	files.forEach(f => {
 		if (f.name.toLowerCase().includes(".scc")) {
 			f.text().then(t => {
-				parseSCC(t);
+			const result = parseSCC(t);
+			if (result !== null) {
 				let title = document.getElementById("title");
 				title.innerText = f.name;
+			} else {
+				console.warn("Invalid file format. Playback stopped.");
+				drawWarningMessage("Invalid file format. Playback stopped.");
+			}
 			});
 		}
 	});
@@ -160,6 +191,14 @@ let scrubber = 0.0;
 
 function lerp(v0, v1, t) {
 	return v0*(1-t)+v1*t
+}
+
+function drawWarningMessage(message) {
+  clear();
+  c.fillStyle = "red";
+  c.font = "24px Arial";
+  c.textAlign = "center";
+  c.fillText(message, canvas.width / 2, canvas.height / 2);
 }
 
 function drawGrid() {
