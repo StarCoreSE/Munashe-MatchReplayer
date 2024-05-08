@@ -9,6 +9,9 @@ let camera = {x: 0, y: 0};
 let offset = {x: width/2, y: height/2};
 let cameraNext = {x: camera.x, y: camera.y};
 
+let warningMessage = "";
+let warningMessageTime = 0;
+
 calculateCanvasResolution();
 
 var slider = document.getElementById("myRange");
@@ -163,8 +166,8 @@ function dropHandler(e) {
 				let title = document.getElementById("title");
 				title.innerText = f.name;
 			} else {
-				console.warn("Invalid file format. Playback stopped.");
-				drawWarningMessage("Invalid file format. Playback stopped.");
+				console.warn("Could not load file: invalid file format.");
+				setWarningMessage("Could not load file: invalid file format.");
 			}
 			});
 		}
@@ -193,12 +196,24 @@ function lerp(v0, v1, t) {
 	return v0*(1-t)+v1*t
 }
 
-function drawWarningMessage(message) {
-  clear();
-  c.fillStyle = "red";
-  c.font = "24px Arial";
-  c.textAlign = "center";
-  c.fillText(message, canvas.width / 2, canvas.height / 2);
+function setWarningMessage(message) {
+	warningMessage = message;
+	warningMessageTime = 1;
+}
+
+function drawWarningMessage(dt) {
+	if (warningMessage == "" || warningMessageTime <= 0) {
+		warningMessage = "";
+		warningMessageTime = 0;
+		return;
+	}
+	c.save();
+	c.fillStyle = `rgba(255, 20, 20, ${warningMessageTime})`;
+	c.font = "24px Arial";
+	c.textAlign = "center";
+	c.fillText(warningMessage, width / 2, height / 2);
+	c.restore();
+	warningMessageTime -= dt * 0.001;
 }
 
 function drawGrid() {
@@ -374,6 +389,7 @@ function draw(dt) {
 		// timeLabel
 		timeLabel.innerHTML = secondsToTime(Math.floor(scrubber * (recording.length)))+"/"+secondsToTime(recording.length);
 	}
+	drawWarningMessage(dt);
 }
 
 var isSliding = false;
