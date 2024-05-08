@@ -318,8 +318,11 @@ function draw(dt) {
 			
 			let xoff = 4;
 			let yoff = 4;
+			// velocity as delta distance between two frames
+			let velocity = Math.sqrt(sq(nextPosition.x - obj.position.x) + (nextPosition.y - obj.position.y));
+			
 			if (options.showNames) {
-				c.fillText(obj.name, x + xoff + radius, y + yoff - radius);
+				c.fillText(obj.name + " "+velocity.toFixed(0)+" m/s", x + xoff + radius, y + yoff - radius);
 			}
 		}
 		if (isPlaying && !isSliding) {
@@ -384,6 +387,8 @@ canvas.addEventListener("mousedown", (e) => {
 		let squaredDistance = sq(S.x-p.x) + sq(S.y-p.y);
 		if (squaredDistance < hitRadius) {
 			trackedTargetId = p.entityId;
+			offset.x = width/2;
+			offset.y = height/2;
 			return;
 		}
 	}
