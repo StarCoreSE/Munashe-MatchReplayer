@@ -158,9 +158,14 @@ function dropHandler(e) {
 	files.forEach(f => {
 		if (f.name.toLowerCase().includes(".scc")) {
 			f.text().then(t => {
-				parseSCC(t);
+			const result = parseSCC(t);
+			if (result !== null) {
 				let title = document.getElementById("title");
 				title.innerText = f.name;
+			} else {
+				console.warn("Invalid file format. Playback stopped.");
+				drawWarningMessage("Invalid file format. Playback stopped.");
+			}
 			});
 		}
 	});
@@ -186,6 +191,14 @@ let scrubber = 0.0;
 
 function lerp(v0, v1, t) {
 	return v0*(1-t)+v1*t
+}
+
+function drawWarningMessage(message) {
+  clear();
+  c.fillStyle = "red";
+  c.font = "24px Arial";
+  c.textAlign = "center";
+  c.fillText(message, canvas.width / 2, canvas.height / 2);
 }
 
 function drawGrid() {
