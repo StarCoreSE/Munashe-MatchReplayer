@@ -344,12 +344,13 @@ function draw(dt) {
 		
 		for (obj of currentData.entries) {
 			let next = nextData.entries.find(e => e.entityId == obj.entityId);
-			
+			let hp = obj.health;
 			let nextPosition = {x: 0, y: 0};
 			let amt = 0.0;
 			if (next) {
 				nextPosition = next.position;
 				amt = remapped - Math.floor(remapped);
+				hp = lerp(obj.health, next.health, amt);
 			}
 			let wx = lerp(obj.position.x, nextPosition.x, amt);
 			let wy = lerp(obj.position.y, nextPosition.y, amt);
@@ -377,6 +378,7 @@ function draw(dt) {
 			if (isNaN(velocity)) velocity = 0;
 			if (options.showNames) {
 				c.fillText(obj.name + " "+velocity.toFixed(0)+" m/s", x + xoff + radius, y + yoff - radius);
+				c.fillText(Math.floor(hp * 100)+"%", x + xoff + radius, y + yoff * 2);
 			}
 		}
 		if (isPlaying && !isSliding) {
