@@ -368,8 +368,14 @@ function draw(dt) {
 
 			c.beginPath();
 			c.arc(x, y, radius, 0, Math.PI * 2, false);
-			if (obj.faction !== "none") {
-				c.fillStyle = `rgb(${obj.factionColor.split(' ').map(n => Math.floor(n * 255)).join(',')})`;
+
+			if (obj.faction !== "Unowned") {
+				let hueValue = parseFloat(obj.factionColor.split(' ')[0]);
+				// Normalize the hue value to a [0, 360] scale assuming 0.55 maps to 360 degrees
+				let normalizedHue = (hueValue / 0.55) * 360;
+
+				// Using HSL with full saturation (100%) and full lightness (50% for visible color)
+				c.fillStyle = `hsl(${normalizedHue}, 100%, 50%)`;
 			} else {
 				c.fillStyle = fill;
 			}
