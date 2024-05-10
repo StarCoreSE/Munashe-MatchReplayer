@@ -86,13 +86,13 @@ function parseSCC(scc) {
   }
 
   // Check if the first line contains "version 1"
-  if (rows[0].trim() !== "version 1") {
+  if (rows[0].trim() !== "version 2") {
     console.warn("Invalid format: Missing 'version 1' in the first line");
     return null;
   }
 
   // Check if the second line contains the expected header
-  const expectedHeader = "kind,name,owner,faction,entityId,health,position,rotation";
+  const expectedHeader = "kind,name,owner,faction,factionColor,entityId,health,position,rotation";
   if (rows[1].trim() !== expectedHeader) {
     console.warn("Invalid format: Incorrect header");
     return null;
@@ -365,10 +365,14 @@ function draw(dt) {
 			let y = S.y;
 			S.entityId = obj.entityId;
 			cachedScreenPositions.push(S);
-			
+
 			c.beginPath();
 			c.arc(x, y, radius, 0, Math.PI * 2, false);
-			c.fillStyle = fill;
+			if (obj.faction !== "none") {
+				c.fillStyle = `rgb(${obj.factionColor.split(' ').map(n => Math.floor(n * 255)).join(',')})`;
+			} else {
+				c.fillStyle = fill;
+			}
 			c.fill();
 			
 			let xoff = 4;
