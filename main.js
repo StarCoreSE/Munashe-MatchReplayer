@@ -86,13 +86,13 @@ function parseSCC(scc) {
   }
 
   // Check if the first line contains "version 1"
-  if (rows[0].trim() !== "version 1") {
+  if (rows[0].trim() !== "version 2") {
     console.warn("Invalid format: Missing 'version 1' in the first line");
     return null;
   }
 
   // Check if the second line contains the expected header
-  const expectedHeader = "kind,name,owner,faction,entityId,health,position,rotation";
+  const expectedHeader = "kind,name,owner,faction,factionColor,entityId,health,position,rotation";
   if (rows[1].trim() !== expectedHeader) {
     console.warn("Invalid format: Incorrect header");
     return null;
@@ -365,10 +365,20 @@ function draw(dt) {
 			let y = S.y;
 			S.entityId = obj.entityId;
 			cachedScreenPositions.push(S);
-			
+
 			c.beginPath();
 			c.arc(x, y, radius, 0, Math.PI * 2, false);
-			c.fillStyle = fill;
+
+			if (obj.faction !== "Unowned") {
+				let hueValue = parseFloat(obj.factionColor.split(' ')[0]);
+				// Normalize the hue value to a [0, 360] scale assuming 0.55 maps to 360 degrees
+				let normalizedHue = (hueValue / 0.55) * 360;
+
+				// Using HSL with full saturation (100%) and full lightness (50% for visible color)
+				c.fillStyle = `hsl(${normalizedHue}, 100%, 50%)`;
+			} else {
+				c.fillStyle = fill;
+			}
 			c.fill();
 			
 			let xoff = 4;
